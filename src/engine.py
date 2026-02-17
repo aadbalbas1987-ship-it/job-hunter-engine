@@ -3,42 +3,54 @@ from datetime import datetime
 from utils import clean_search_query, generate_linkedin_url
 from notifications import send_telegram, send_email
 
-# Configuración de búsqueda
-KEYWORDS = ["Python Automation", "Data Analysis", "Process Automation"]
-EXCLUDE = "-contable -accounting -auditor -tax"
+ROLES = [
+    "Data Analyst", 
+    "Analista de Datos", 
+    "Administrativo Semi Senior", 
+    "Administrativo Senior",
+    "Analista de Procesos",
+    "Business Intelligence" # Lo sumamos como 'puente' excelente
+]
+
+EXCLUDE = "-contable -accounting -auditor -tax -impuestos -facturacion"
 
 def run_job_search():
     fecha = datetime.now().strftime('%d/%m/%Y')
-    print(f"🚀 Iniciando búsqueda para el día: {fecha}")
+    print(f"🚀 Iniciando búsqueda Híbrida/Remota: {fecha}")
     
-    report_text = f"🤖 *Job Hunter Report - {fecha}*\n\n"
-    html_email = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif;">
-            <h2 style="color: #2e6c80;">Reporte Diario de Vacantes (Andrés)</h2>
-            <p>Se han filtrado resultados de LinkedIn evitando perfiles contables.</p>
-            <ul>
-    """
+    report_text = f"🏠 *MODALIDAD: REMOTO / HÍBRIDO - {fecha}*\n"
+    report_text += "🎯 *Foco:* Data & Admin Seniority\n\n"
     
-    for kw in KEYWORDS:
-        query_cleaned = clean_search_query(kw, EXCLUDE)
-        url = generate_linkedin_url(query_cleaned)
+    html_email = f"<h2>Reporte Remoto/Híbrido - {fecha}</h2>"
+
+    for role in ROLES:
+        q_linked = clean_search_query(role, EXCLUDE)
+        q_others = role.lower().replace(" ", "-")
         
-        # Formateo para Telegram
-        report_text += f"📍 *{kw}*\n[Ver vacantes en LinkedIn]({url})\n\n"
-        # Formateo para Email
-        html_email += f"<li><strong>{kw}:</strong> <a href='{url}'>Ver vacantes</a></li>"
+        # --- LINKEDIN (f_WT=2 es remoto, f_WT=3 es híbrido) ---
+        # f_TPR=r86400 (24h) | f_WT=2%2C3 (Remoto e Híbrido)
+        link_ln = f"{generate_linkedin_url(q_linked)}&f_WT=2%2C3"
+        
+        # --- BUMERAN (modalidad-remoto / modalidad-hibrido) ---
+        link_bm = f"https://www.bumeran.com.ar/empleos-busqueda-{q_others}.html?publicado=en-las-ultimas-24-horas&modalidad=remoto-hibrido"
+        
+        # --- COMPUTRABAJO (teletrabajo=1 es remoto, 2 es presencial) ---
+        # Priorizamos el parámetro de teletrabajo
+        link_ct = f"https://ar.computrabajo.com/trabajo-de-{q_others}?pubdate=1&teletrabajo=1"
 
-    html_email += "</ul><br><p>Sistema ejecutado desde el entorno seguro de Windows.</p></body></html>"
+        report_text += f"📍 *{role}*\n"
+        report_text += f"• [LinkedIn (Remoto/Híb)]({link_ln})\n"
+        report_text += f"• [Bumeran (Remoto/Híb)]({link_bm})\n"
+        report_text += f"• [CompuTrabajo (Remoto)]({link_ct})\n\n"
+        
+        html_email += f"<h3>{role}</h3><ul>"
+        html_email += f"<li><a href='{link_ln}'>LinkedIn (Remoto/Híbrido)</a></li>"
+        html_email += f"<li><a href='{link_bm}'>Bumeran (Remoto/Híbrido)</a></li>"
+        html_email += f"<li><a href='{link_ct}'>CompuTrabajo (Remoto)</a></li></ul>"
 
-    # Ejecución de envíos
-    print("Enviando reporte a Telegram...")
     send_telegram(report_text)
-    
-    print("Enviando reporte a Email...")
-    send_email(f"Reporte de Vacantes Automation - {fecha}", html_email)
-    
-    print("✅ ¡Proceso finalizado con éxito!")
+    send_email(f"Trabajos Híbridos/Remotos - {fecha}", html_email)
+    print("✅ ¡Reporte enviado con filtros de modalidad!")
 
 if __name__ == "__main__":
     run_job_search()
