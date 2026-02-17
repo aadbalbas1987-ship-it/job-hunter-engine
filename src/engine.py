@@ -1,37 +1,44 @@
 import os
-from dotenv import load_dotenv
-from notifications import send_telegram, send_email
+from datetime import datetime
 from utils import clean_search_query, generate_linkedin_url
+from notifications import send_telegram, send_email
 
-load_dotenv()
-
-# Filtro estricto: Cero contabilidad
+# Configuración de búsqueda
 KEYWORDS = ["Python Automation", "Data Analysis", "Process Automation"]
 EXCLUDE = "-contable -accounting -auditor -tax"
 
 def run_job_search():
-    print("🚀 Iniciando búsqueda de empleos...")
-    report_text = "*Nuevas Vacantes de Automation & Data (24h)*\n\n"
-    html_email = "<h2>Reporte Diario de Vacantes</h2><ul>"
+    fecha = datetime.now().strftime('%d/%m/%Y')
+    print(f"🚀 Iniciando búsqueda para el día: {fecha}")
+    
+    report_text = f"🤖 *Job Hunter Report - {fecha}*\n\n"
+    html_email = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif;">
+            <h2 style="color: #2e6c80;">Reporte Diario de Vacantes (Andrés)</h2>
+            <p>Se han filtrado resultados de LinkedIn evitando perfiles contables.</p>
+            <ul>
+    """
     
     for kw in KEYWORDS:
-        # Usamos las funciones de utils.py
         query_cleaned = clean_search_query(kw, EXCLUDE)
         url = generate_linkedin_url(query_cleaned)
         
+        # Formateo para Telegram
         report_text += f"📍 *{kw}*\n[Ver vacantes en LinkedIn]({url})\n\n"
-        html_email += f"<li><strong>{kw}:</strong> <a href='{url}'>Ver en LinkedIn</a></li>"
+        # Formateo para Email
+        html_email += f"<li><strong>{kw}:</strong> <a href='{url}'>Ver vacantes</a></li>"
 
-    html_email += "</ul><p>Filtros aplicados: Sin referencias contables.</p>"
+    html_email += "</ul><br><p>Sistema ejecutado desde el entorno seguro de Windows.</p></body></html>"
 
-    # Envíos
-    print("Enviando Telegram...")
+    # Ejecución de envíos
+    print("Enviando reporte a Telegram...")
     send_telegram(report_text)
     
-    print("Enviando Email...")
-    send_email("Tu Reporte Diario de Empleos Python", html_email)
+    print("Enviando reporte a Email...")
+    send_email(f"Reporte de Vacantes Automation - {fecha}", html_email)
     
-    print("✅ ¡Proceso completado! Revisa tu celular y tu casilla de correo.")
+    print("✅ ¡Proceso finalizado con éxito!")
 
 if __name__ == "__main__":
     run_job_search()
