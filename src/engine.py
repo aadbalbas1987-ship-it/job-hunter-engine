@@ -1,56 +1,47 @@
 import os
+import csv
 from datetime import datetime
-from utils import clean_search_query, generate_linkedin_url
+from utils import clean_search_query, generate_linkedin_url, get_platform_links
 from notifications import send_telegram, send_email
 
-ROLES = [
-    "Data Analyst", 
-    "Analista de Datos", 
-    "Administrativo Semi Senior", 
-    "Administrativo Senior",
-    "Analista de Procesos",
-    "Business Intelligence" # Lo sumamos como 'puente' excelente
-]
+# Configuración
+ROLES = ["Data Analyst", "Analista de Datos", "Administrativo Senior", "Analista de Procesos"]
+EXCLUDE = "-contable -accounting -auditor -tax -impuestos"
+DATA_FILE = "data/historico_vacantes.csv"
 
-EXCLUDE = "-contable -accounting -auditor -tax -impuestos -facturacion"
+def save_to_csv(role, platform, url):
+    """Guarda los datos para el futuro Dashboard."""
+    os.makedirs("data", exist_ok=True)
+    file_exists = os.path.isfile(DATA_FILE)
+    fecha = datetime.now().strftime('%Y-%m-%d')
+    
+    with open(DATA_FILE, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(['Fecha', 'Puesto', 'Plataforma', 'Link'])
+        writer.writerow([fecha, role, platform, url])
 
 def run_job_search():
-    fecha = datetime.now().strftime('%d/%m/%Y')
-    print(f"🚀 Iniciando búsqueda Híbrida/Remota: {fecha}")
+    fecha_display = datetime.now().strftime('%d/%m/%Y')
+    report_text = f"📊 *DATA ESTRATÉGICA - {fecha_display}*\n\n"
     
-    report_text = f"🏠 *MODALIDAD: REMOTO / HÍBRIDO - {fecha}*\n"
-    report_text += "🎯 *Foco:* Data & Admin Seniority\n\n"
-    
-    html_email = f"<h2>Reporte Remoto/Híbrido - {fecha}</h2>"
-
     for role in ROLES:
+        # Generar links usando utils
         q_linked = clean_search_query(role, EXCLUDE)
-        q_others = role.lower().replace(" ", "-")
-        
-        # --- LINKEDIN (f_WT=2 es remoto, f_WT=3 es híbrido) ---
-        # f_TPR=r86400 (24h) | f_WT=2%2C3 (Remoto e Híbrido)
         link_ln = f"{generate_linkedin_url(q_linked)}&f_WT=2%2C3"
-        
-        # --- BUMERAN (modalidad-remoto / modalidad-hibrido) ---
-        link_bm = f"https://www.bumeran.com.ar/empleos-busqueda-{q_others}.html?publicado=en-las-ultimas-24-horas&modalidad=remoto-hibrido"
-        
-        # --- COMPUTRABAJO (teletrabajo=1 es remoto, 2 es presencial) ---
-        # Priorizamos el parámetro de teletrabajo
-        link_ct = f"https://ar.computrabajo.com/trabajo-de-{q_others}?pubdate=1&teletrabajo=1"
+        link_bm, link_ct = get_platform_links(role)
 
+        # Guardar en base de datos local (CSV)
+        save_to_csv(role, "LinkedIn", link_ln)
+        save_to_csv(role, "Bumeran", link_bm)
+        save_to_csv(role, "CompuTrabajo", link_ct)
+
+        # Formatear reporte para Telegram
         report_text += f"📍 *{role}*\n"
-        report_text += f"• [LinkedIn (Remoto/Híb)]({link_ln})\n"
-        report_text += f"• [Bumeran (Remoto/Híb)]({link_bm})\n"
-        report_text += f"• [CompuTrabajo (Remoto)]({link_ct})\n\n"
-        
-        html_email += f"<h3>{role}</h3><ul>"
-        html_email += f"<li><a href='{link_ln}'>LinkedIn (Remoto/Híbrido)</a></li>"
-        html_email += f"<li><a href='{link_bm}'>Bumeran (Remoto/Híbrido)</a></li>"
-        html_email += f"<li><a href='{link_ct}'>CompuTrabajo (Remoto)</a></li></ul>"
+        report_text += f"• [LinkedIn]({link_ln}) | [Bumeran]({link_bm})\n\n"
 
     send_telegram(report_text)
-    send_email(f"Trabajos Híbridos/Remotos - {fecha}", html_email)
-    print("✅ ¡Reporte enviado con filtros de modalidad!")
+    print(f"✅ Reporte enviado y datos guardados en {DATA_FILE}")
 
 if __name__ == "__main__":
     run_job_search()
